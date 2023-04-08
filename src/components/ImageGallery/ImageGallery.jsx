@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { ImageGalleryItem } from 'components/ImageGalleryItem/ImageGalleryItem';
 import { fetchData } from 'helpers/fetchAPI';
 import { Button } from 'components/Button/Button';
@@ -8,108 +8,103 @@ import Modal from 'components/Modal/Modal';
 import sass from './ImageGallery.module.scss';
 import PropTypes from 'prop-types';
 
-class ImageGallery extends Component {
-    state = {
-        images: [],
-        page: 1,
-        status: 'idle',
-        isModalOpen: false,
-        modalImg: '',
-        totalHits: 0,
-    };
+const ImageGallery = (props) => {
+    const [images, setImages] = useState([])
+    const [page, setPage] = useState(1)
+    const [status, setStatus] = useState('idle')
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [modalImg, setModalImg] = useState('')
+    const [totalHits, setTotalHits] = useState(0)
 
-    normalizeData(hits) {
+    const normalizeData = (hits) => {
         return hits.map(item => ({ id: item.id, webformatURL: item.webformatURL, largeImageURL: item.largeImageURL, tags: item.tags}))
     }
 
-    componentDidUpdate(prevProps, prevState) {
-        const { page, images } = this.state;
+    useEffect(() => {
         try {
-        if (page !== prevState.page && page !== 1) {
-            fetchData(this.props.query, page).then(response => {
-            const normalizeHits = this.normalizeData(response.hits)
-                
-            this.setState({
-                images: [...images, ...normalizeHits],
-                status: 'resolved',
-            });
-            });
-        }
-
-        if (prevProps.query !== this.props.query) {
-            fetchData(this.props.query, 1).then(response => {
-            const normalizeHits = this.normalizeData(response.hits)
-
-            if (!response.hits.length) {
-                this.setState({ status: 'rejected', images: [] });
-                return;
+            if (page !== 1) {
+                fetchData(props.query, page).then(response => {
+                    const normalizeHits = normalizeData(response.hits)
+                    
+                    setImages([...images, ...normalizeHits])
+                    setStatus('resolved')
+                });
+            } 
+            
+            if(props.query.length > 0) {
+                console.log(props.query)
+                fetchData(props.query, 1).then(response => {
+                    const normalizeHits = normalizeData(response.hits)
+    
+                    if (!response.hits.length) {
+                        setStatus('rejected')
+                        setImages([])
+                        return;
+                    }
+    
+                    setImages(normalizeHits)
+                    setStatus('resolved')
+                    setPage(1)
+                    setTotalHits(response.totalHits)
+    
+                    if (response.totalHits === images.length + response.hits.length) {
+                        setStatus('idle')
+                    }
+                });
             }
-
-            this.setState({
-                images: normalizeHits,
-                status: 'resolved',
-                page: 1,
-                totalHits: response.totalHits,
-            });
-
-            if (response.totalHits === images.length + response.hits.length) {
-                this.setState({ status: 'idle' });
-            }
-            });
-        }
         } catch (error) {
-        console.error(error);
+            console.error(error);
         }
-    }
+    }, [page, images, status, totalHits, props])
 
-    onLoadMore = () => {
-        this.setState({ status: 'pending', page: this.state.page + 1 });
+    const onLoadMore = () => {
+        setStatus('pending')
+        setPage(page + 1)
     };
 
-    showModal = e => {
-        this.setState({ isModalOpen: true });
-        this.largeItemFinder(e);
+    const showModal = e => {
+        setIsModalOpen(true)
+        largeItemFinder(e);
     };
 
-    closeModal = e => {
-        if (e.target === e.currentTarget) this.setState({ isModalOpen: false });
+    const closeModal = e => {
+        if (e.target === e.currentTarget) {
+            setIsModalOpen(false)
+        }
     };
 
-    largeItemFinder = e => {
-        const seachItem = this.state.images.find(
-        el => el.webformatURL === e.target.src
+    const largeItemFinder = e => {
+        const seachItem = images.find(
+            el => el.webformatURL === e.target.src
         );
         const largeImage = seachItem.largeImageURL;
-        this.setState({ modalImg: largeImage });
+        setModalImg(largeImage)
     };
 
-    render() {
-        const { status, images, modalImg, isModalOpen, totalHits } = this.state;
-        return (
-        <>
-            <ul className={sass.imageGallery}>
-            {this.state.images.map(({ id, webformatURL, tags }) => {
-                return (
-                <ImageGalleryItem
-                    key={id}
-                    image={webformatURL}
-                    tags={tags}
-                    showModal={this.showModal}
-                />
-                );
-            })}
-            </ul>
-            {status === 'pending' && <Loader />}
-            {status !== 'idle' && status !== 'pending' && images.length !== 0 && images.length < totalHits && (
-            <Button onLoadMore={this.onLoadMore} />
-            )}
-            {status === 'rejected' && <Error />}
-            {isModalOpen && (
-            <Modal largeImage={modalImg} closeModal={this.closeModal} />
-            )}
-        </>
-        );
-    }
+    return (
+    <>
+        <ul className={sass.imageGallery}>
+        {images.map(({ id, webformatURL, tags }) => {
+            return (
+            <ImageGalleryItem
+                key={id}
+                image={webformatURL}
+                tags={tags}
+                showModal={showModal}
+            />
+            );
+        })}
+        </ul>
+        {status === 'pending' && <Loader />}
+        {status !== 'idle' && status !== 'pending' && images.length !== 0 && images.length < totalHits && (
+        <Button onLoadMore={onLoadMore} />
+        )}
+        {status === 'rejected' && <Error />}
+        {isModalOpen && (
+        <Modal largeImage={modalImg} closeModal={closeModal} />
+        )}
+    </>
+    );
 }
 
 ImageGallery.propTypes = {
