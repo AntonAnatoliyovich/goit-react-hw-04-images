@@ -10,7 +10,7 @@ import PropTypes from 'prop-types';
 
 const ImageGallery = (props) => {
     const [images, setImages] = useState([])
-    const [page, setPage] = useState(1)
+    let [page, setPage] = useState(1)
     const [status, setStatus] = useState('idle')
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [modalImg, setModalImg] = useState('')
@@ -22,44 +22,54 @@ const ImageGallery = (props) => {
 
     useEffect(() => {
         try {
-            if (page !== 1) {
-                fetchData(props.query, page).then(response => {
-                    const normalizeHits = normalizeData(response.hits)
+            // if (page !== 1) {
+            //     fetchData(props.query, page).then(response => {
+            //         const normalizeHits = normalizeData(response.hits)
                     
-                    setImages([...images, ...normalizeHits])
-                    setStatus('resolved')
-                });
-            } 
+            //         setImages([...images, ...normalizeHits])
+            //         setStatus('resolved')
+            //     });
+            // } 
             
             if(props.query.length > 0) {
                 console.log(props.query)
-                fetchData(props.query, 1).then(response => {
-                    const normalizeHits = normalizeData(response.hits)
-    
-                    if (!response.hits.length) {
-                        setStatus('rejected')
-                        setImages([])
-                        return;
-                    }
-    
-                    setImages(normalizeHits)
-                    setStatus('resolved')
-                    setPage(1)
-                    setTotalHits(response.totalHits)
-    
-                    if (response.totalHits === images.length + response.hits.length) {
-                        setStatus('idle')
-                    }
-                });
+                if(page === 1) {
+                    fetchData(props.query, 1).then(response => {
+                        const normalizeHits = normalizeData(response.hits)
+        
+                        if (!response.hits.length) {
+                            setStatus('rejected')
+                            setImages([])
+                            return;
+                        }
+        
+                        setImages(normalizeHits)
+                        setStatus('resolved')
+                        setPage(1)
+                        setTotalHits(response.totalHits)
+        
+                        if (response.totalHits === images.length + response.hits.length) {
+                            setStatus('idle')
+                        }
+                    });
+                }
             }
         } catch (error) {
             console.error(error);
         }
-    }, [page, images, status, totalHits, props])
+    }, [page, props.query])
 
     const onLoadMore = () => {
         setStatus('pending')
-        setPage(page + 1)
+        setPage(page = page + 1)
+        console.log(page)
+
+        fetchData(props.query, page).then(response => {
+            const normalizeHits = normalizeData(response.hits)
+            
+            setImages([...images, ...normalizeHits])
+            setStatus('resolved')
+        });
     };
 
     const showModal = e => {
